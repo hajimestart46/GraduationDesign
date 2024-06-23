@@ -14,6 +14,7 @@ public class PlayerScript : MonoBehaviour
     [Header("Player Animator and Gravity")]
     public CharacterController cC;
     public float gravity = -9.81f;
+    public Animator animator;
 
     [Header("Player Jumping and velocity")]
     public float turnCalmTime = 0.1f;
@@ -25,11 +26,12 @@ public class PlayerScript : MonoBehaviour
     public float surfaceDistance = 0.4f;
     public LayerMask surfaceMask;
 
+
     private void Update()
     {
         onSurface = Physics.CheckSphere(surfaceCheck.position, surfaceDistance, surfaceMask);
 
-        if (onSurface && velocity.y < 0)
+        if(onSurface && velocity.y < 0)
         {
             velocity.y = -2f;
         }
@@ -39,40 +41,84 @@ public class PlayerScript : MonoBehaviour
 
         playerMove();
         Jump();
+        Sprint();
     }
 
     void playerMove()
     {
+        
+        animator.SetBool("Idle", false);
+        animator.SetBool("Walk", true);
+        animator.SetBool("Running", false);
+        animator.SetBool("RifleWalk", false);
+        animator.SetBool("IdleAim", false);
+
         float horizontal_axis = Input.GetAxisRaw("Horizontal");
         float vertical_axis = Input.GetAxisRaw("Vertical");
 
         Vector3 direction = new Vector3(horizontal_axis, 0f, vertical_axis).normalized;
 
-        if (direction.magnitude >= 0.1f)
+        if(direction.magnitude >= 0.1f)
         {
             float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + playerCamera.eulerAngles.y;
             float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnCalmVelocity, turnCalmTime);
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
-
+            
             Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+            cC.Move(moveDirection.normalized * playerSpeed * Time.deltaTime);
 
-            // 调整速度以考虑是否按下冲刺键
-            // 速度を考慮し「shiftキー」に押す
-            float speed = Input.GetButton("Sprint") && onSurface ? playerSprint : playerSpeed;
-
-            cC.Move(moveDirection.normalized * speed * Time.deltaTime);
         }
-        else if (direction.magnitude < 0.1f)
+        else 
         {
-            cC.Move(Vector3.zero);
+            animator.SetBool("Idle", true);
+            animator.SetBool("Walk", false);
+            animator.SetBool("Running", false);
         }
     }
 
     void Jump()
     {
-        if (Input.GetButtonDown("Jump") && onSurface)
+        if(Input.GetButtonDown("Jump") && onSurface)
         {
-            velocity.y = Mathf.Sqrt(jumpRange * -2 * gravity); 
+
+            animator.SetBool("Idle", false);
+            animator.SetTrigger("Jump");
+            velocity.y = Mathf.Sqrt(jumpRange * -2 * gravity);
+        }
+        else
+        {
+            animator.SetBool("Idle", true);
+            animator.ResetTrigger("Jump");
+        }
+    }
+
+    void Sprint()
+    {
+        if(Input.GetButton("Sprint") && Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) && onSurface)
+        {
+            float horizontal_axis = Input.GetAxisRaw("Horizontal");
+            float vertical_axis = Input.GetAxisRaw("Vertical");
+
+            Vector3 direction = new Vector3(horizontal_axis, 0f, vertical_axis).normalized;
+
+            if(direction.magnitude >= 0.1f)
+            {
+                
+                animator.SetBool("Walk", false);
+                animator.SetBool("Running", true);
+
+                float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + playerCamera.eulerAngles.y;
+                float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnCalmVelocity, turnCalmTime);
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            
+                Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+                cC.Move(moveDirection.normalized * playerSprint  * Time.deltaTime);
+            }
+            else
+            {
+                animator.SetBool("Walk", true);
+                animator.SetBool("Running", false);
+            }
         }
     }
 }
